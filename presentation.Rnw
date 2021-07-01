@@ -1,0 +1,672 @@
+\documentclass{beamer}
+\usetheme{CambridgeUS}
+\usepackage{ctex}
+\usepackage[notocbib]{apacite}
+\usepackage{graphicx}
+\usepackage[most]{tcolorbox}
+\setbeamertemplate{caption}[numbered]
+
+
+
+\begin{document}
+%\SweaveOpts{concordance=TRUE}
+<<setup, include=F, echo=F>>=
+# smaller font size for chunks
+#opts_chunk$set(size = 'footnotesize')
+library(maptools)
+library(tidyverse)
+library(ggalt)
+library(ggthemes)
+library(tibble)
+library(viridis)
+library(haven)
+library(cowplot)
+library(stargazer)
+library(xtable)
+library(lmtest)
+
+# Extra function to resize stargazer table output
+resizebox.stargazer = function(..., tab.width = "!", tab.height = "!"
+                               ){
+  #Activate str_which() function:
+  require(stringr) 
+
+  #Extract the code returned from stargazer()
+  res = capture.output(
+    stargazer::stargazer(...)
+    )
+
+  #Render the arguments:
+  tab.width = tab.width
+  tab.height = tab.height
+
+  #Attach "}" between \end{tabular} and \end{table}
+  res = 
+    prepend(res, "}", before = length(res))
+
+  #Input \resizebox before \begin{tabular}
+  res = 
+    c(res[1:str_which(res, "^\\\\begin\\{tabular\\}.*")-1],
+      paste0("\\resizebox{",tab.width,"}{",tab.height,"}{%"),
+      res[str_which(res, "^\\\\begin\\{tabular\\}.*"):length(res)]
+      )
+
+  #Produce the whole strings
+  cat(res, sep = "\n")
+}
+
+
+# Generate base Italian map
+recode.province <- function(region) {
+  return(rec$Region[which(rec$Province == region)])
+}
+regnum <- read.csv("./regnum.csv")
+rec <- read.csv(file = "./regions_recode.csv")
+italy_map <- map_data("italy")
+it.map.obs <- nrow(italy_map)
+italy_map <- italy_map %>% rename(province = region)
+italy_map$region <- NA
+for (i in seq(1, it.map.obs)) {
+  italy_map$region[i] <- recode.province(italy_map$province[i])
+  italy_map$regnum[i] <- regnum$regnum[
+    which(regnum$region == italy_map$region[i])]
+}
+italy_proj <- "+proj=aea +lat_1=38.15040684902542
++lat_2=44.925490198742295 +lon_0=12.7880859375"
+
+italy.base <- ggplot() + geom_map(data = italy_map, map = italy_map,
+                                  aes(long, lat, map_id = region),
+                                  color = "#b2b2b2", size = 0.1, fill = NA) +
+  coord_proj(italy_proj) +
+  theme_map()
+
+
+pre.2018 <- read_dta("./data/2018/Itanes_2018_release01_pre_electoral.dta")
+regnum <- read.csv("./regnum_2018.csv")
+# pre.2018 <- ori.2018 %>% select(c("lrself", "med04", "voto1"))
+pre.2018$lrself <- na_if(pre.2018$lrself, 11)
+pre.2018$lrself <- na_if(pre.2018$lrself, 88)
+pre.2018$lr1 <- na_if(pre.2018$lr1, 11)
+pre.2018$lr1 <- na_if(pre.2018$lr1, 88)
+pre.2018$lr2 <- na_if(pre.2018$lr2, 11)
+pre.2018$lr2 <- na_if(pre.2018$lr2, 88)
+pre.2018$lr3 <- na_if(pre.2018$lr3, 11)
+pre.2018$lr3 <- na_if(pre.2018$lr3, 88)
+pre.2018$lr4 <- na_if(pre.2018$lr4, 11)
+pre.2018$lr4 <- na_if(pre.2018$lr4, 88)
+pre.2018$eco1 <- na_if(pre.2018$eco1, 88)
+pre.2018$eco2 <- na_if(pre.2018$eco2, 88)
+pre.2018$pol1 <- na_if(pre.2018$pol1, 88)
+#pre.2018$med04 <- na_if(pre.2018$med04, 12)
+#pre.2018$med04 <- na_if(pre.2018$med04, 13)
+pre.2018$med04 <- na_if(pre.2018$med04, 99)
+pre.2018$lrself <- as.integer(pre.2018$lrself)
+
+pre.2018 <- pre.2018 %>% filter(!(voto1 == 95 | voto1 == 96 |
+                                    voto1 == 98 | voto1 == 99)) %>%
+  mutate(vote.pd = ifelse(voto1 == 3, 1, 0)) %>%
+  mutate(vote.m5s = ifelse(voto1 == 7, 1, 0)) %>%
+  mutate(vote.lega = ifelse(voto1 == 9, 1, 0)) %>%
+  mutate(vote.leu = ifelse(voto1 == 2, 1, 0)) %>%
+  mutate(vote.forza = ifelse(voto1 == 8, 1, 0)) %>%
+  mutate(age.squared = dem02 ^ 2) %>%
+  mutate(vote.censin = ifelse(voto1 == 3 | voto1 == 4 |
+                               voto1 == 5 | voto1 == 6, 1, 0)) %>%
+  mutate(vote.all.sin = ifelse(vote.censin == 1 | voto1 == 1 |
+                                 voto1 == 2, 1, 0))
+pre.2018$vote.pd <- as.factor(pre.2018$vote.pd)
+pre.2018$regionNord <- ifelse(pre.2018$dem07 == 1, 1, 0)
+pre.2018$regionNord <- as.factor(pre.2018$regionNord)
+pre.2018$regionCentro <- ifelse(pre.2018$dem07 == 2, 1, 0)
+pre.2018$regionCentro <- as.factor(pre.2018$regionCentro)
+pre.2018$regionSud <- ifelse(pre.2018$dem07 == 3, 1, 0)
+pre.2018$regionSud <- as.factor(pre.2018$regionSud)
+pre.2018$rep.reader <- ifelse(pre.2018$med04 == 2, 1, 0)
+pre.2018$pop <- pre.2018$itanes7pop1 + pre.2018$itanes7pop2 + 
+  pre.2018$itanes7pop3 + pre.2018$itanes7pop4 + pre.2018$itanes7pop5 + 
+  pre.2018$itanes7pop6 + pre.2018$itanes7pop7 + pre.2018$itanes7pop8
+pre.2018$edu <- 1
+for(i in seq(1, nrow(pre.2018))) {
+  if(pre.2018$dem09[i] <= 7) pre.2018$edu[i] <- 0
+  else pre.2018$edu[i] <- 1
+}
+pre.2018$eco <- pre.2018$eco1 + pre.2018$eco2
+
+
+logit.pd <- glm(vote.pd ~ lrself + rep.reader + pop + eco + regionNord + 
+                  regionCentro + regionSud + dem08,
+                data = pre.2018, family = "binomial")
+
+logit.pd.final <- glm(vote.pd ~ lrself + regionNord + regionCentro + regionSud +
+                        dem08 + rep.reader + itanes7pop1 + itanes7pop2 +
+                        itanes7pop3 + itanes7pop4 + itanes7pop5 + itanes7pop6 +
+                        itanes7pop7 + itanes7pop8 + eco1 + eco2,
+                      data = pre.2018, family = "binomial")
+
+
+logit.censin <- glm(vote.censin ~ lrself + rep.reader + pop + eco + regionNord + 
+                  regionCentro + regionSud + dem08,
+                data = pre.2018, family = "binomial")
+
+logit.censin.final <- glm(vote.censin ~ lrself + regionNord + regionCentro + regionSud +
+                        dem08 + rep.reader + itanes7pop1 + itanes7pop2 +
+                        itanes7pop3 + itanes7pop4 + itanes7pop5 + itanes7pop6 +
+                        itanes7pop7 + itanes7pop8 + eco1 + eco2,
+                      data = pre.2018, family = "binomial")
+
+logit.allsin <- glm(vote.all.sin ~ lrself + rep.reader + pop + eco + regionNord + 
+                  regionCentro + regionSud + dem08,
+                data = pre.2018, family = "binomial")
+
+logit.allsin.final <- glm(vote.all.sin ~ lrself + regionNord + regionCentro + regionSud +
+                        dem08 + rep.reader + itanes7pop1 + itanes7pop2 +
+                        itanes7pop3 + itanes7pop4 + itanes7pop5 + itanes7pop6 +
+                        itanes7pop7 + itanes7pop8 + eco1 + eco2,
+                      data = pre.2018, family = "binomial")
+
+logit.lega <- glm(vote.lega ~ lrself + rep.reader + pop + eco + regionNord + 
+                  regionCentro + regionSud + dem08,
+                data = pre.2018, family = "binomial")
+
+logit.lega.final <- glm(vote.lega ~ lrself + regionNord + regionCentro + regionSud +
+                        dem08 + rep.reader + itanes7pop1 + itanes7pop2 +
+                        itanes7pop3 + itanes7pop4 + itanes7pop5 + itanes7pop6 +
+                        itanes7pop7 + itanes7pop8 + eco1 + eco2,
+                      data = pre.2018, family = "binomial")
+
+logit.m5s <- glm(vote.m5s ~ lrself + rep.reader + pop + eco + regionNord + 
+                  regionCentro + regionSud + dem08,
+                data = pre.2018, family = "binomial")
+
+logit.m5s.final <- glm(vote.m5s ~ lrself + regionNord + regionCentro + regionSud +
+                        dem08 + rep.reader + itanes7pop1 + itanes7pop2 +
+                        itanes7pop3 + itanes7pop4 + itanes7pop5 + itanes7pop6 +
+                        itanes7pop7 + itanes7pop8 + eco1 + eco2,
+                      data = pre.2018, family = "binomial")
+
+logit.forza <- glm(vote.forza ~ lrself + rep.reader + pop + eco + regionNord + 
+                  regionCentro + regionSud + dem08,
+                data = pre.2018, family = "binomial")
+
+logit.forza.final <- glm(vote.forza ~ lrself + regionNord + regionCentro + regionSud +
+                        dem08 + rep.reader + itanes7pop1 + itanes7pop2 +
+                        itanes7pop3 + itanes7pop4 + itanes7pop5 + itanes7pop6 +
+                        itanes7pop7 + itanes7pop8 + eco1 + eco2,
+                      data = pre.2018, family = "binomial")
+
+pd.voters <- pre.2018 %>% filter(vote.pd == 1) %>% group_by(dem04) %>%
+  summarize(pd.count = n())
+all.voters <- pre.2018 %>% group_by(dem04) %>% summarize(x = n())
+pd.voters$all.votes <- rep(1, 19)
+for(i in 1:19) {
+  pd.voters$all.votes[i] <- all.voters[all.voters$dem04 == pd.voters$dem04[i],]$x
+  pd.voters$region[i] <- regnum[regnum$regnum == pd.voters$dem04[i],]$region
+}
+pd.voters <- pd.voters %>% mutate(pd.rate = pd.count / all.votes)
+
+pd.map <- italy.base + geom_map(data=pd.voters, map=italy_map,
+                            aes(fill=pd.rate, map_id=region),
+                            color="#b2b2b2", size=0.1) +
+  scale_fill_gradient(low = "white", high = "black", name = "PD Rate") +
+  theme(legend.title = element_blank(),
+        legend.position=c(0.7, 0.8),
+        legend.key.size = unit(0.2, 'cm'),
+        legend.text = element_text(size = 6))
+
+rep.readers <- pre.2018 %>% filter(rep.reader == 1) %>%
+  group_by(dem04) %>% summarize(reader.count = n())
+for(i in 1:19){
+  rep.readers$region[i]<- regnum[regnum$regnum == rep.readers$dem04[i],]$region
+}
+rep.readers$total <- pd.voters$all.votes
+rep.readers <- rep.readers %>% mutate(rep.rate = reader.count / total)
+rep.map <- italy.base + geom_map(data=rep.readers, map=italy_map,
+                            aes(fill=rep.rate, map_id=region),
+                            color="#b2b2b2", size=0.1) +
+  scale_fill_gradient(low = "white", high = "black", name = "PD Rate") +
+  theme(legend.title = element_blank(),
+        legend.position=c(0.7, 0.8),
+        legend.key.size = unit(0.2, 'cm'),
+        legend.text = element_text(size = 6))
+
+#  scale_fill_viridis(direction = -1, name="PD Rate")
+
+fit.prob <- logit.pd %>% predict(pre.2018, type = "response")
+pre.2018$predicted.pd <- ifelse(fit.prob > 0.5, 1, 0)
+prediction.rate <- mean(pre.2018$vote.pd == pre.2018$predicted.pd, na.rm = T)
+
+zona.rossa <- read.csv("./zona_rossa.csv")
+map.zona.rossa <- italy.base + geom_map(data=zona.rossa, map=italy_map,
+                                        aes(fill=rate,map_id=region),
+                                        color="#b2b2b2", size=0.1) + 
+  scale_fill_gradient(low="white",high="red") +
+  theme(legend.position = "none")
+
+@
+\title{意大利2018年大选民主党支持者特点研究}
+\subtitle{兼论党派刻板印象的过时及其对未来选举的影响}
+\author{曾宸}
+\maketitle
+
+\begin{frame}
+	\frametitle{目录}
+	\tableofcontents
+\end{frame} 
+
+\section{导言：一个衰落中的政党}
+
+\subsection{意大利左派政党的流变史}
+
+\begin{frame}
+\frametitle{导言}
+
+\begin{itemize}
+  \item 战后的意大利有着西欧最大、最有影响力的共产党（\textit{Partito Comunista Italiano}, PCI）。
+1991年，意共改组为左翼民主党（\textit{Partito Democratico della Sinistra}, PDS）。
+为今日的民主党（\textit{Partito Democratico}, PD）前身。
+  \item 民主党成立于2007年，是当今意大利最大的中左翼政党；但该党在2018年大选中在议会两院
+中所占席位相比2013年大选明显下降，许多席位被联盟党和五星运动党蚕食。
+\cite{pasquino2009democratic}
+
+\end{itemize}
+
+
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \includegraphics[width=0.5\textwidth]{images//2013gen.png} \\
+  \includegraphics[width=0.5\textwidth]{images//2018gen.png}
+  \caption{大选结果（上：2013，下：2018）}
+\end{figure}
+\end{frame}
+
+
+\subsection{\textit{Questione meridionale} - 南方问题}
+\begin{frame}
+\begin{itemize}
+  \item “南方问题”不仅早已成为影响意大利全面现代化的重大问题也正在成为欧盟内部、 甚至整个发达国家中最大的地区发展问题。意大利已经成为欧盟内人
+均国民生产总值空间分布最不平衡的国家。\cite{fischer2012spatial}
+  \item “南方问题”早在意大利统一（1871年）初期就已经存在。南方天主教势力强大、工业化程度
+低于北方、黑手党问题严重，凡此种种，都使得南方和北方在政治、经济和社会上存在
+重大差异。
+\cite{张雄2001意大利} 
+
+\end{itemize}
+
+
+
+\end{frame}
+
+\begin{frame}
+\begin{figure}
+  \includegraphics[width=0.5\textwidth]{images//italy-gdp-2015.jpg}
+  \caption{Map of Italian regions by GDP per capita in euros (2015)}
+\end{figure}
+\end{frame}
+
+\subsection{\textit{La zona rossa} - 红色地带}
+\begin{frame}
+\begin{itemize}
+  \item 意大利的政党政治有着鲜明的地区特色。许多地区都有着相似的政党偏好，其中最为明显的是所谓的“红色地带”（la zona rossa），
+包含了艾米利亚--罗马涅、托斯卡纳、翁布里亚和马尔凯四个地区。在历史上，这些地区是意共的核心选区。
+\cite{shin2001whatever}
+  \item 意共解体后，这个区域一直是民主党的核心“票仓”。
+\end{itemize}
+
+
+
+\begin{figure}
+<<echo=F, fig.width=5, fig.height=2,fig.align='center'>>=
+map.zona.rossa
+@
+\caption{The Red Zone in Central Italy}
+\end{figure}
+\end{frame}
+
+
+
+
+
+\section{变量设置与探索性分析}
+\begin{frame}
+\frametitle{变量设置与探索性分析}
+\begin{itemize}
+  \item 数据来源ITANES Fieldwork PRE-ELECTORAL Questionaire（发布于2019年11月），共有
+5528个样本。
+  \item The Itanes (Italian National Election Studies) Association promotes a research programme on voting behaviour in Italy, the origins of which date back to the early 1990s, when the Istituto Carlo Cattaneo Research Foundation conducted two post-election surveys (1990 and 1992) within the context of a project devoted to the study of change in the Italian political system. For the 1994 elections the Cattaneo’s research programme was joined by various researchers from several different universities, and in December 2007 they founded the Itanes Association.
+\end{itemize}
+
+
+
+
+
+\end{frame}
+
+\subsection{政治“左 -- 右”定位}
+\begin{frame}[fragile]
+\begin{itemize}
+  \item 选取选择人数超过300的政党进行分析——五星运动、民主党、联盟党和意大利兄弟党。
+\end{itemize}
+
+
+\begin{figure}
+
+<<echo=F, fig.width=4, fig.height=2.5,fig.align='center'>>=
+party.lr <- pre.2018 %>% group_by(voto1) %>% summarize(self.lf = mean(lrself, na.rm=T), num=n())
+party.lr$party <- c("Potere al Popolo", "Liberi e Uguali", "Partito Democratico",
+                    "Insieme", "Civica Popolare", "Più Europa", "Movimento 5 Stelle",
+                    "Forza Italia", "Lega", "Fratelli d'Italia", "Noi con l'Italia",
+                    "Others")
+party.lr <- party.lr %>% mutate(party = fct_reorder(party, desc(num)))
+party.count <- ggplot(data = party.lr) +
+  geom_bar(aes(x=party,weight=num)) + 
+  geom_hline(yintercept = 300) +
+  theme_cowplot() +
+  theme(text = element_text(size = 10),
+        axis.text = element_text(size=8),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+  xlab("Party Affiliation") +
+  ylab("N. of Interviewees")
+party.count
+@
+\caption{各党派支持者的人数}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{自我定位}
+\begin{tcolorbox}[enhanced,colframe=white,colback=white, fuzzy halo = 1mm with gray] 
+Molta gente quando parla di politica usa i termini `sinistra' e `destra'.
+Qui sotto \`{e} riportata una fila di caselle che vanno da sinistra a destra.
+Pensando alle sue opinioni politiche, Lei in quale casella si collocherebbe?
+
+0 = Sinistra ...... 10 = Destra
+
+11 = Non mi colloco da sessuna parte
+
+88 = Non saprei
+\end{tcolorbox}
+\end{frame}
+
+\begin{frame}
+\frametitle{他人定位}
+\begin{tcolorbox}[enhanced,colframe=white,colback=white, fuzzy halo = 1mm with gray] 
+Pensando invece ai partiti politici, dove collocherebbe ognuno dei seguenti,
+utilizzando sempre le stessa fila di caselle che va da Sinistra a Destra?
+Se non conosce il partito o non sa che risposta dare, inidichi `Non conosco il
+partito' o `Non saprei'
+
+0 = Sinistra ...... 10 = Destra
+
+11 = Non conosco il partito
+
+88 = Non saprei
+\end{tcolorbox}
+\end{frame}
+
+\begin{frame}
+\begin{figure}
+<<echo=F, fig.width=5, fig.height=3,fig.align='center'>>=
+positioning <- party.lr %>% filter(party == "Movimento 5 Stelle" |
+                                          party == "Lega" | 
+                                          party == "Forza Italia" |
+                                          party == "Partito Democratico")
+positioning$others.lr <- 5
+positioning$others.lr[1] <- mean(pre.2018$lr1, na.rm = T)
+positioning$others.lr[2] <- mean(pre.2018$lr2, na.rm = T)
+positioning$others.lr[3] <- mean(pre.2018$lr3, na.rm = T)
+positioning$others.lr[4] <- mean(pre.2018$lr4, na.rm = T)
+ggplot(data = positioning) +
+  geom_point(aes(x=self.lf,y=party,shape="Oneself"), size = 2) +
+  geom_point(aes(x=others.lr,y=party,shape="Others"), size = 2) +
+  geom_hline(yintercept = c(1, 2, 3, 4), linetype="dotted") +
+  geom_vline(xintercept = 5, linetype="dashed") +
+  xlim(0,10) +
+  theme_cowplot() +
+  theme(text = element_text(size = 10),
+        axis.text.y = element_text(size=6),
+        legend.text = element_text(size=8),
+        legend.title = element_text(size=8)) +
+  labs(shape ="") +
+  xlab("Political Positioning") +
+  ylab("Party")
+#  theme(legend.position=c(0.65, 0.8))
+@
+\caption{各党派政治意识形态定位（0 = 左，10 = 右）}
+\end{figure}
+\end{frame}
+
+
+\subsection{人口特征 -- 重估“红色地带”}
+
+\begin{frame}
+\begin{figure}
+<<echo=F, fig.width=5, fig.height=3,fig.align='center'>>=
+pd.map
+@
+\caption{民主党支持者各大区受访者占比}
+\end{figure}
+\end{frame}
+
+
+\subsection{媒体 -- 《共和报》读者}
+
+\begin{frame}
+\frametitle{媒体 -- 《共和报》读者}
+\begin{tcolorbox}[enhanced,colframe=white,colback=white, fuzzy halo = 1mm with gray] 
+Parliamo adesso dei giornali quotidiani. Quale dei seguenti quotidiani (cartaceo
+o in internet) ha letto ieri? Indichi il principale quotidiano.
+
+...
+
+2. Repubblica...
+
+...
+
+12. Altro quotidiano
+
+13. Non ho letto nessun quotidiano
+
+98. Preferisco non rispondere
+\end{tcolorbox}
+
+\end{frame}
+\begin{frame}
+\begin{figure}
+<<echo=F, fig.width=5, fig.height=3,fig.align='center'>>=
+rep.map
+@
+\caption{《共和报》读者在各大区受访者占比}
+\end{figure}
+\end{frame}
+
+\subsection{民粹主义倾向}
+
+\begin{frame}
+\begin{tcolorbox}[enhanced,colframe=white,colback=white, fuzzy halo = 1mm with gray] 
+Consideri le seguenti affermazioni ed esprima il suo grado di accordo su una
+scala che va da ``molto d'accordo'' a ``molto in disaccordo''.
+
+1. Molto d'accordo
+
+2. Abbastanza d'accordo
+
+3. N\'e d'accordo n\'e disaccordo
+
+4. Poco d'accordo
+
+5. Per niente d'accordo
+\end{tcolorbox}
+\end{frame}
+
+\begin{frame}
+\begin{tcolorbox}[enhanced,colframe=white,colback=white, fuzzy halo = 1mm with gray] 
+pop1. I politici in Parlamento devono seguire la volontà dei cittadini\\
+pop2. I cittadini, e non i politici, dovrebbero prendere le decisioni politiche più importanti\\
+pop3. Le differenze fra i politici e il popolo sono maggiori delle differenze che ci sono all’interno del popolo\\
+pop4. Preferirei essere rappresentato da una persona comune piuttosto che da un politico di professione\\
+pop5. I politici parlano tanto ma fanno poco\\
+pop6. Fare compromessi in politica significa in realtà svendere i propri principi\\
+pop7. I giornalisti sono troppo a contatto con i poteri forti per informare le persone comuni\\
+pop8. Le grandi banche internazionali stanno colonizzando il nostro Paese
+\end{tcolorbox}
+\end{frame}
+
+\begin{frame}[fragile]
+<<>>=
+pre.2018 %>% group_by(dem04) %>% summarize(popave = mean(pop, na.rm=T))
+@
+\end{frame}
+
+\subsection{经济前景展望}
+
+\begin{frame}
+\begin{tcolorbox}[enhanced,colframe=white,colback=white, fuzzy halo = 1mm with gray] 
+eco1. Parliamo di economia. Secondo Lei la situazione economica in Italia nell'ultimo anno è:\\
+1. Molto migliorata\\
+2. Abbastanza migliorata\\
+3. Rimasta uguale\\
+4. Abbastanza peggiorata\\
+5. Molto peggiorata\\
+88. Non saprei\\
+eco2. Guardando ora al futuro, secondo Lei nei prossimi dodici mesi la situazione economica dell'Italia:\\
+1. Migliorerà molto\\
+2. Migliorerà abbastanza\\
+3. Rimarrà uguale\\
+4. Peggiorerà abbastanza\\
+5. Peggiorerà molto\\
+88. Non saprei
+\end{tcolorbox}
+\end{frame}
+
+\section{回归分析}
+
+
+\subsection{统计假设与模型选择}
+
+\begin{frame}
+\begin{itemize}
+  \item 零假设：选民是否支持民主党和“左--右”定位、人口特征（区域、地区人口）、是否阅读
+《共和报》、有无民粹主义倾向、是否看好经济前景无关。
+  \item 设置可接受的I型错误率为0.05
+  \item 由于最后选民对是否支持民主党作出的结果的二元性，这里采用Logistic Model进行回归
+分析。
+\end{itemize}
+
+
+
+
+
+
+
+\end{frame}
+
+\subsection{回归结果分析}
+
+\begin{frame}[fragile]
+<<echo=T>>=
+lrtest(logit.pd)
+@
+\begin{itemize}
+  \item 模型整体显著，拒绝零假设，接受替代假设。样本的\Sexpr{round(prediction.rate*100, 1)}\%
+可以被该模型准确预测。
+\end{itemize}
+
+
+\end{frame}
+
+\begin{frame}
+<<results="asis",echo=F>>=
+#stargazer(logit.pd)
+resizebox.stargazer(logit.pd, logit.censin, logit.allsin, single.row = T,
+          dep.var.caption = "Voting Behavior",
+          dep.var.labels = c("PD", "Centre-left", "All Leftists"),
+          covariate.labels = c("Self-positioning",
+                               "La Rep. Readership",
+                               "Populism",
+                               "Economic Outlook",
+                               "Region - North",
+                               "Region - Central",
+                               "Region - South",
+                               "Town Size"),
+                    title="Logistic Regression of PD-Voting Likelihood (1)",
+                    tab.width = "0.9\\textwidth")
+@
+\end{frame}
+
+\begin{frame}
+<<results="asis",echo=F>>=
+#stargazer(logit.pd)
+resizebox.stargazer(logit.pd, logit.lega, logit.forza, logit.m5s, single.row = T,
+          dep.var.caption = "Voting Behavior",
+          dep.var.labels = c("PD", "Lega", "Forza", "M5S"),
+          covariate.labels = c("Self-positioning",
+                               "La Rep. Readership",
+                               "Populism",
+                               "Economic Outlook",
+                               "Region - North",
+                               "Region - Central",
+                               "Region - South",
+                               "Town Size"),
+                    title="Logistic Regression of PD-Voting Likelihood (2)",
+                    tab.width = "1\\textwidth")
+
+resizebox.stargazer(logit.pd.final, logit.censin.final, logit.allsin.final,
+          logit.lega.final, logit.forza.final, logit.m5s.final, single.row = T,
+          dep.var.caption = "Voting Behavior",
+          dep.var.labels = c("PD", "Center-left", "All Leftists", "Lega",
+                             "Forza", "M5S"),
+          covariate.labels = c("Self-positioning",
+                               "Region - North",
+                               "Region - Center",
+                               "Region - South",
+                               "Town Size",
+                               "La Rep. Reader",
+                               "Populism - General Will",
+                               "Populism - Direct Democracy",
+                               "Populism - People-politician Dispute",
+                               "Populism - Anti-professionalism",
+                               "Populism - Non-action Accusation",
+                               "Populism - Betraying Principles",
+                               "Populism - Journalist's Impact",
+                               "Populism - Intl Colonization",
+                               "Economic Overview - Past",
+                               "Economic Outlook - Future"),
+                    title="Logistic Regression of Voting Likelihood",
+          tab.width = "1.8\\textheight")
+@
+\end{frame}
+
+
+\section{结语}
+
+\begin{frame}
+\frametitle{结语}
+\begin{itemize}
+  \item 在政治光谱上自我定位偏向左派的选民，更容易在选举中支持民主党，这是符合我们直觉和
+经验的。
+  \item 但是，传统意义上的“红色地带”正在被五星运动和联盟党侵蚀，民主党的基本盘变得十分
+不稳固，这在2018年大选的结果中可以观察到。原来“中部地区+小市镇居民”的典型民主党
+（以及更广泛意义上的左派）的支持者，愈加失去其地理特色。与之相对的，大众传媒（
+特别是网络媒体的流行），在某种程度上替代了过去“红色地带”提供的政治归属感，成为
+了当下民主党支持者的重要沟通联络方式。凡此种种，都为意大利未来的政治气候带来了
+相当的不确定性。
+\end{itemize}
+
+\end{frame}
+
+% very important to use option [fragile] for frames containing code output!
+
+
+\section{参考文献}
+\Large{参考文献}
+
+\bibliographystyle{apacite}  % set style to IEEE
+\bibliography{ref.bib}  % set reference file name
+
+
+\end{document}

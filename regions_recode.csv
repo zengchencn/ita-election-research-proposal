@@ -1,0 +1,96 @@
+Province,Region,Region Code
+Bolzano-Bozen,Trentino Alto Adige,TAA
+Belluno,Veneto,VEN
+Udine,Friuli Venezia Giulia,FVG
+Sondrio,Lombardia,LOM
+Trento,Trentino Alto Adige,TAA
+Novara,Piemonte,PIE
+Pordenone,Friuli Venezia Giulia,FVG
+Brescia,Lombardia,LOM
+Como,Lombardia,LOM
+Varese,Lombardia,LOM
+Treviso,Veneto,VEN
+Bergamo,Lombardia,LOM
+Gorizia,Friuli Venezia Giulia,FVG
+Vicenza,Veneto,VEN
+Aosta,Valle d'Aosta,VDA
+Vercelli,Piemonte,PIE
+Venezia,Veneto,VEN
+Verona,Veneto,VEN
+Trieste,Friuli Venezia Giulia,FVG
+Milano,Lombardia,LOM
+Padova,Veneto,VEN
+Torino,Piemonte,PIE
+Cremona,Lombardia,LOM
+Mantova,Lombardia,LOM
+Pavia,Lombardia,LOM
+Alessandria,Piemonte,PIE
+Rovigo,Veneto,VEN
+Piacenza,Emilia Romagna,EMR
+Asti,Piemonte,PIE
+Parma,Emilia Romagna,EMR
+Reggio Emilia,Emilia Romagna,EMR
+Ferrara,Emilia Romagna,EMR
+Modena,Emilia Romagna,EMR
+Cuneo,Piemonte,PIE
+Bologna,Emilia Romagna,EMR
+Genova,Liguria,LIG
+Ravenna,Emilia Romagna,EMR
+Savona,Liguria,LIG
+Massa-Carrara,Toscana,TOS
+La Spezia,Liguria,LIG
+Forli',Emilia Romagna,EMR
+Lucca,Toscana,TOS
+Firenze,Toscana,TOS
+Pistoia,Toscana,TOS
+Imperia,Liguria,LIG
+Pesaro e Urbino,Marche,MAR
+Arezzo,Toscana,TOS
+Pisa,Toscana,TOS
+Ancona,Marche,MAR
+Livorno,Toscana,TOS
+Perugia,Umbria,UMB
+Siena,Toscana,TOS
+Macerata,Marche,MAR
+Ascoli Piceno,Marche,MAR
+Grosseto,Toscana,TOS
+Terni,Umbria,UMB
+Teramo,Abruzzo,ABR
+Viterbo,Lazio,LAZ
+Rieti,Lazio,LAZ
+L'Aquila,Abruzzo,ABR
+Pescara,Abruzzo,ABR
+Chieti,Abruzzo,ABR
+Roma,Lazio,LAZ
+Campobasso,Molise,MOL
+Foggia,Puglia,PUG
+Frosinone,Lazio,LAZ
+Isernia,Molise,MOL
+Latina,Lazio,LAZ
+Caserta,Campania,CAM
+Benevento,Campania,CAM
+Bari,Puglia,PUG
+Avellino,Campania,CAM
+Sassari,Sardegna,SAR
+Potenza,Basilicata,BAS
+Napoli,Campania,CAM
+Brindisi,Puglia,PUG
+Nuoro,Sardegna,SAR
+Salerno,Campania,CAM
+Matera,Basilicata,BAS
+Taranto,Puglia,PUG
+Lecce,Puglia,PUG
+Oristano,Sardegna,SAR
+Cosenza,Calabria,CAL
+Cagliari,Sardegna,SAR
+Catanzaro,Calabria,CAL
+Messina,Sicilia,SIC
+Palermo,Sicilia,SIC
+Reggio Calabria,Calabria,CAL
+Trapani,Sicilia,SIC
+Catania,Sicilia,SIC
+Enna,Sicilia,SIC
+Caltanissetta,Sicilia,SIC
+Agrigento,Sicilia,SIC
+Siracusa,Sicilia,SIC
+Ragusa,Sicilia,SIC
